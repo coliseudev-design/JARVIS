@@ -1,0 +1,35 @@
+name: Foundation checks
+on:
+  push:
+    branches: [main]
+  pull_request:
+permissions:
+  contents: read
+jobs:
+  foundation:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+        with:
+          node-version: 24.19.0
+          cache: npm
+      - run: npm ci --ignore-scripts --no-audit --no-fund
+      - run: npm run check
+      - name: Generate disposable Compose credentials
+        run: |
+          umask 077
+          for name in POSTGRES_PASSWORD JARVIS_API_PASSWORD JARVIS_WORKER_PASSWORD JARVIS_MIGRATOR_PASSWORD REDIS_PASSWORD; do
+            printf '%s=%s\n' "$name" "$(openssl rand -hex 32)" >> .env
+          done
+      - run: docker compose config --quiet
+      - run: docker compose up --build --wait --wait-timeout 180
+      - name: Test real worker persistence
+        run: docker compose exec -T worker node scripts/container-smoke.mjs
+      - name: Test web and readiness through the actual proxy
+        run: |
+          docker compose exec -T web node --input-type=module -e "const r=await fetch('http://127.0.0.1:8080/health/ready');if(r.status!==200)process.exit(1);const s=await (await fetch('http://127.0.0.1:8080/api/v1/system/status')).json();if(s.capabilities.chat!=='unavailable')process.exit(1);"
+      - name: Clean disposable CI services
+        if: always()
+        run: docker compose down --volumes --remove-orphans

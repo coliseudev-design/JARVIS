@@ -1,0 +1,14 @@
+.git
+.local
+.cache
+**/node_modules
+**/dist
+.env
+.env.*
+docs
+prompts
+tests
+services/hermes-adapter/spike
+coverage
+*.md
+**/__pycache__

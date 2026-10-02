@@ -1,0 +1,26 @@
+{
+  "mode": "real-hermes-with-synthetic-local-provider",
+  "commit": "4e3fcd5cd7e40c37cb6f9a21a76fc57a7361957a",
+  "python": "Python 3.14.7",
+  "status": "passed",
+  "checks": {
+    "two_private_homes_processes": true,
+    "cross_runtime_credential_rejected": true,
+    "concurrent_canaries_isolated": true,
+    "cross_home_response_id_rejected": true,
+    "continuity_after_process_restart_and_model_switch": true,
+    "real_sse_transport": true,
+    "run_idempotency": true,
+    "cross_home_run_id_rejected": true,
+    "cancel_settles_after_worker_exit": true,
+    "no_tools_sent_to_provider": true,
+    "provider_requests_never_mix_canaries": true,
+    "native_memory_not_in_prompt_and_seed_unchanged": true
+  },
+  "provider_request_count": 9,
+  "model_ids_observed_by_fixture": [
+    "fixture-a",
+    "fixture-b"
+  ],
+  "fixture_usage_not_real_billing": true
+}

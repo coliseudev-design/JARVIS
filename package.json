@@ -1,0 +1,46 @@
+{
+  "name": "jarvis",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "engines": {
+    "node": ">=24 <25"
+  },
+  "packageManager": "npm@11.9.0",
+  "workspaces": [
+    "apps/*",
+    "packages/*"
+  ],
+  "scripts": {
+    "build": "npm run build -w @jarvis/contracts && npm run build -w @jarvis/policy && npm run build -w @jarvis/database && npm run build -w @jarvis/api && npm run build -w @jarvis/worker && npm run build -w @jarvis/web",
+    "typecheck": "npm run typecheck --workspaces --if-present",
+    "test": "vitest run --exclude tests/integration/**",
+    "test:integration": "vitest run tests/integration",
+    "dev:api": "npm run dev -w @jarvis/api",
+    "dev:web": "npm run dev -w @jarvis/web",
+    "dev:worker": "npm run dev -w @jarvis/worker",
+    "db:migrate": "tsx packages/database/src/migrate.ts",
+    "check": "npm run build && npm run typecheck && npm test"
+  },
+  "dependencies": {
+    "@fastify/swagger": "9.9.1",
+    "bullmq": "6.3.11",
+    "drizzle-orm": "0.45.3",
+    "fastify": "5.12.5",
+    "ioredis": "6.0.0",
+    "pg": "8.23.1",
+    "react": "19.3.0",
+    "react-dom": "19.3.0",
+    "zod": "4.6.5"
+  },
+  "devDependencies": {
+    "@types/node": "24.10.1",
+    "@types/pg": "8.23.1",
+    "@types/react": "19.3.0",
+    "@types/react-dom": "19.3.0",
+    "tsx": "4.23.15",
+    "typescript": "5.9.3",
+    "vite": "8.3.2",
+    "vitest": "5.0.3"
+  }
+}

@@ -1,0 +1,133 @@
+name: jarvis-foundation
+
+x-runtime: &runtime
+  build:
+    context: .
+    dockerfile: Dockerfile
+  init: true
+  restart: unless-stopped
+  read_only: true
+  tmpfs:
+    - /tmp:rw,noexec,nosuid,size=64m
+  security_opt:
+    - no-new-privileges:true
+  cap_drop: [ALL]
+  networks: [backend]
+
+services:
+  postgres:
+    image: pgvector/pgvector:0.8.0-pg17
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: jarvis_bootstrap
+      POSTGRES_DB: jarvis_dev
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD in Coolify}
+      JARVIS_API_PASSWORD: ${JARVIS_API_PASSWORD:?Set JARVIS_API_PASSWORD in Coolify}
+      JARVIS_WORKER_PASSWORD: ${JARVIS_WORKER_PASSWORD:?Set JARVIS_WORKER_PASSWORD in Coolify}
+      JARVIS_MIGRATOR_PASSWORD: ${JARVIS_MIGRATOR_PASSWORD:?Set JARVIS_MIGRATOR_PASSWORD in Coolify}
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./infra/compose/init-db.sh:/docker-entrypoint-initdb.d/10-jarvis.sh:ro
+    healthcheck:
+      test: [CMD-SHELL, "pg_isready -U jarvis_bootstrap -d jarvis_dev"]
+      interval: 10s
+      timeout: 5s
+      retries: 12
+    networks: [backend]
+    mem_limit: 1g
+
+  redis:
+    image: redis:8.0.2-alpine
+    restart: unless-stopped
+    environment:
+      REDIS_PASSWORD: ${REDIS_PASSWORD:?Set REDIS_PASSWORD in Coolify}
+    command:
+      - sh
+      - -ec
+      - |
+        case "$$REDIS_PASSWORD" in *[!a-fA-F0-9]*|'') echo 'REDIS_PASSWORD must be hexadecimal' >&2; exit 1;; esac
+        umask 077
+        printf 'bind 0.0.0.0\nprotected-mode yes\nappendonly yes\nrequirepass %s\n' "$$REDIS_PASSWORD" > /tmp/redis.conf
+        exec docker-entrypoint.sh redis-server /tmp/redis.conf
+    volumes:
+      - redis_data:/data
+    healthcheck:
+      test: [CMD-SHELL, 'REDISCLI_AUTH="$$REDIS_PASSWORD" redis-cli ping | grep -q PONG']
+      interval: 10s
+      timeout: 5s
+      retries: 12
+    networks: [backend]
+    mem_limit: 256m
+
+  migrate:
+    <<: *runtime
+    restart: "no"
+    command: [node, packages/database/dist/migrate.js]
+    environment:
+      APP_MODE: foundation
+      MIGRATION_DATABASE_URL: postgresql://jarvis_migrator:${JARVIS_MIGRATOR_PASSWORD}@postgres:5432/jarvis_dev
+    depends_on:
+      postgres: { condition: service_healthy }
+    mem_limit: 256m
+
+  api:
+    <<: *runtime
+    command: [node, apps/api/dist/server.js]
+    environment:
+      APP_MODE: foundation
+      HOST: 0.0.0.0
+      PORT: "3001"
+      DATABASE_URL: postgresql://jarvis_api:${JARVIS_API_PASSWORD}@postgres:5432/jarvis_dev
+      REDIS_URL: redis://:${REDIS_PASSWORD}@redis:6379
+    depends_on:
+      migrate: { condition: service_completed_successfully }
+      redis: { condition: service_healthy }
+    healthcheck:
+      test: [CMD, node, -e, "fetch('http://127.0.0.1:3001/health/ready').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"]
+      interval: 15s
+      timeout: 5s
+      retries: 6
+    expose: ["3001"]
+    mem_limit: 512m
+
+  worker:
+    <<: *runtime
+    command: [node, apps/worker/dist/server.js]
+    environment:
+      APP_MODE: foundation
+      WORKER_DATABASE_URL: postgresql://jarvis_worker:${JARVIS_WORKER_PASSWORD}@postgres:5432/jarvis_dev
+      REDIS_URL: redis://:${REDIS_PASSWORD}@redis:6379
+    depends_on:
+      api: { condition: service_healthy }
+    healthcheck:
+      test: [CMD, node, -e, "const fs=require('node:fs');try{process.exit(Date.now()-Number(fs.readFileSync('/tmp/jarvis-worker-heartbeat','utf8'))<20000?0:1)}catch{process.exit(1)}"]
+      interval: 15s
+      timeout: 5s
+      retries: 6
+    mem_limit: 512m
+
+  web:
+    <<: *runtime
+    command: [node, scripts/serve-web.mjs]
+    environment:
+      API_ORIGIN: http://api:3001
+      WEB_HOST: 0.0.0.0
+      WEB_PORT: "8080"
+    depends_on:
+      api: { condition: service_healthy }
+    expose: ["8080"]
+    networks: [backend, edge]
+    healthcheck:
+      test: [CMD, node, -e, "fetch('http://127.0.0.1:8080/health/ready').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"]
+      interval: 15s
+      timeout: 5s
+      retries: 6
+    mem_limit: 256m
+
+networks:
+  backend:
+    internal: true
+  edge: {}
+volumes:
+  postgres_data:
+  redis_data:
