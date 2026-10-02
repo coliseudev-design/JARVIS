@@ -2,6 +2,8 @@
 
 Atualizado em 02/10/2026. Fonte de escopo: plano original F00–F20. Esta entrega inaugura o repositório, previamente vazio. Evidências referem-se à máquina cloud desta sessão, não à VPS do usuário.
 
+Código e Compose publicados na branch `main` de `coliseudev-design/JARVIS`; publicação inicial `136227e`. Clone limpo instalou e passou os checks. Configuração cloud `install_script`/`start_skill` salva; publicação do snapshot depende do fluxo do produto. GitHub API impediu consultar o resultado do CI remoto, portanto ele segue não confirmado.
+
 | Marco | Estado real | Evidência / próximo gate |
 |---|---|---|
 | Planejamento F00–F20 | Entregue | `IMPLEMENTATION_PLAN.md`, 15 prompts A00–A14, ExecPlans F00/F01 |

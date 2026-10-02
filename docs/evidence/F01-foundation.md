@@ -24,3 +24,11 @@ O primeiro build encontrou typing `unknown` no handler de erros do Fastify; o ha
 O modo `foundation` do Compose libera apenas rotas operacionais de leitura e informa recursos indisponíveis. Não é modo de produção com identidade. O web proxy tem origem fixa no servidor, não aceita destino arbitrário pelo request e não encaminha mutações nesta fase. Readiness/health não indicam que o JARVIS completo foi entregue.
 
 CI versionado executará `npm run check`, Compose completo e probes; existência do YAML não comprova execução no GitHub. Domínio, TLS, limites da VPS, backup/restore operacional e rollback de release continuam pendentes de staging/F15. Não houve deploy nesta sessão.
+
+## Verificação após publicação inicial
+
+O commit `136227eba940029d9783698d5d1b7605c29fd336` foi enviado à `main` de `coliseudev-design/JARVIS`; `git ls-remote` confirmou o mesmo SHA. Um clone limpo em `/tmp/jarvis-clean-validation` instalou por `npm ci --ignore-scripts` e passou build/typecheck/5 testes. O bootstrap em banco vazio havia sido verificado separadamente, e os 3 testes de integração foram repetidos com o worker persistente parado para evitar outro consumidor.
+
+`install_script` e `start_skill` foram salvos com confirmação no draft do ambiente cloud. Isso não publica snapshot nem inicia serviços em uma nova máquina. O script `setup-cloud.sh` completo foi executado com sucesso; o installer Hermes ajustado inclui aiohttp pelo extra mínimo upstream e o spike foi repetido (12 passes).
+
+A consulta do CI remoto via GitHub API retornou `Forbidden` no proxy; o acesso Git/push continua funcionando. Resultado remoto do workflow permanece desconhecido, sem pedir token adicional para uma publicação de código que já funcionou.
