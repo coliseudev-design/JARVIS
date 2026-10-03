@@ -14,13 +14,14 @@
   "scripts": {
     "build": "npm run build -w @jarvis/contracts && npm run build -w @jarvis/policy && npm run build -w @jarvis/database && npm run build -w @jarvis/api && npm run build -w @jarvis/worker && npm run build -w @jarvis/web",
     "typecheck": "npm run typecheck --workspaces --if-present",
-    "test": "vitest run --exclude tests/integration/**",
-    "test:integration": "vitest run tests/integration",
+    "test": "vitest run apps packages",
+    "test:integration": "vitest run tests/integration/foundation.test.ts && python3 scripts/test-fresh-database.py --identity",
     "dev:api": "npm run dev -w @jarvis/api",
     "dev:web": "npm run dev -w @jarvis/web",
     "dev:worker": "npm run dev -w @jarvis/worker",
     "db:migrate": "tsx packages/database/src/migrate.ts",
-    "check": "npm run build && npm run typecheck && npm test"
+    "check": "npm run build && npm run typecheck && npm test",
+    "test:browser": "bash scripts/with-dev-env.sh python3 scripts/test-fresh-database.py --browser"
   },
   "dependencies": {
     "@fastify/swagger": "9.9.1",
@@ -34,6 +35,7 @@
     "zod": "4.6.5"
   },
   "devDependencies": {
+    "@playwright/test": "1.63.0",
     "@types/node": "24.10.1",
     "@types/pg": "8.23.1",
     "@types/react": "19.3.0",

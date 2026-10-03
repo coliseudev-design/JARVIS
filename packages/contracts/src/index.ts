@@ -22,3 +22,18 @@ export const RunStateEventSchema = z.strictObject({
   conversation_id: z.uuid(), run_id: z.uuid(), occurred_at: z.iso.datetime(),
   type: z.literal('run.queued'), payload: z.strictObject({ state: z.literal('queued') }),
 });
+
+const Password = z.string().min(12).max(128);
+const Code = z.string().regex(/^[0-9]{6}$/);
+const Token = z.string().regex(/^[a-f0-9]{64}$/);
+export const LoginSchema = z.strictObject({ email: z.email().max(254), password: z.string().min(1).max(128), code: Code.optional() });
+export const AcceptInviteSchema = z.strictObject({ token: Token, password: Password, display_name: z.string().trim().min(1).max(120) });
+export const InviteSchema = z.strictObject({ email:z.email().max(254),role:z.enum(['member','tenant_admin']).default('member') });
+export const RecoveryRequestSchema = z.strictObject({ email:z.email().max(254) });
+export const RecoveryCompleteSchema = z.strictObject({ token:Token,password:Password,code:Code.optional() });
+export const ProfileSchema = z.strictObject({ id:z.uuid(),display_name:z.string().min(1).max(120),timezone:z.string().max(80),version:z.number().int().positive() });
+export const ProfileUpdateSchema = z.strictObject({ display_name:z.string().trim().min(1).max(120),timezone:z.string().min(1).max(80),expected_version:z.number().int().positive() });
+export const MeSchema = z.strictObject({ user_id:z.uuid(),tenant_id:z.uuid(),email:z.email(),role:z.enum(['member','tenant_admin']),platform_admin:z.boolean(),mfa_enabled:z.boolean(),mfa_verified:z.boolean(),csrf_token:z.string(),profile:ProfileSchema });
+export type Me = z.infer<typeof MeSchema>;
+export const MfaStartSchema = z.strictObject({password:Password});
+export const MfaConfirmSchema = z.strictObject({code:Code});

@@ -16,7 +16,7 @@ x-runtime: &runtime
 
 services:
   postgres:
-    image: pgvector/pgvector:0.8.0-pg17
+    image: pgvector/pgvector:0.8.2-pg17@sha256:feb68f4f15446397d8cac7f4fe48fe4586de83160d1fc48b46283312d1a33966
     restart: unless-stopped
     environment:
       POSTGRES_USER: jarvis_bootstrap
@@ -25,6 +25,7 @@ services:
       JARVIS_API_PASSWORD: ${JARVIS_API_PASSWORD:?Set JARVIS_API_PASSWORD in Coolify}
       JARVIS_WORKER_PASSWORD: ${JARVIS_WORKER_PASSWORD:?Set JARVIS_WORKER_PASSWORD in Coolify}
       JARVIS_MIGRATOR_PASSWORD: ${JARVIS_MIGRATOR_PASSWORD:?Set JARVIS_MIGRATOR_PASSWORD in Coolify}
+      JARVIS_AUTH_PASSWORD: ${JARVIS_AUTH_PASSWORD:?Set JARVIS_AUTH_PASSWORD in Coolify}
     volumes:
       - postgres_data:/var/lib/postgresql/data
       - ./infra/compose/init-db.sh:/docker-entrypoint-initdb.d/10-jarvis.sh:ro
@@ -37,7 +38,7 @@ services:
     mem_limit: 1g
 
   redis:
-    image: redis:8.0.2-alpine
+    image: redis:8.0.2-alpine@sha256:48501c5ad00d5563bc30c075c7bcef41d7d98de3e9a1e6c752068c66f0a8463b
     restart: unless-stopped
     environment:
       REDIS_PASSWORD: ${REDIS_PASSWORD:?Set REDIS_PASSWORD in Coolify}
@@ -59,6 +60,26 @@ services:
     networks: [backend]
     mem_limit: 256m
 
+  provision:
+    image: pgvector/pgvector:0.8.2-pg17@sha256:feb68f4f15446397d8cac7f4fe48fe4586de83160d1fc48b46283312d1a33966
+    restart: "no"
+    command: [bash, /scripts/provision.sh]
+    environment:
+      PGHOST: postgres
+      PGPASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_USER: jarvis_bootstrap
+      POSTGRES_DB: jarvis_dev
+      JARVIS_API_PASSWORD: ${JARVIS_API_PASSWORD}
+      JARVIS_WORKER_PASSWORD: ${JARVIS_WORKER_PASSWORD}
+      JARVIS_MIGRATOR_PASSWORD: ${JARVIS_MIGRATOR_PASSWORD}
+      JARVIS_AUTH_PASSWORD: ${JARVIS_AUTH_PASSWORD}
+    volumes:
+      - ./infra/compose/init-db.sh:/scripts/provision.sh:ro
+    depends_on:
+      postgres: { condition: service_healthy }
+    networks: [backend]
+    mem_limit: 256m
+
   migrate:
     <<: *runtime
     restart: "no"
@@ -67,7 +88,7 @@ services:
       APP_MODE: foundation
       MIGRATION_DATABASE_URL: postgresql://jarvis_migrator:${JARVIS_MIGRATOR_PASSWORD}@postgres:5432/jarvis_dev
     depends_on:
-      postgres: { condition: service_healthy }
+      provision: { condition: service_completed_successfully }
     mem_limit: 256m
 
   api:
@@ -78,7 +99,13 @@ services:
       HOST: 0.0.0.0
       PORT: "3001"
       DATABASE_URL: postgresql://jarvis_api:${JARVIS_API_PASSWORD}@postgres:5432/jarvis_dev
+      AUTH_DATABASE_URL: postgresql://jarvis_auth:${JARVIS_AUTH_PASSWORD}@postgres:5432/jarvis_dev
+      APP_ENCRYPTION_KEY: ${APP_ENCRYPTION_KEY:?Set APP_ENCRYPTION_KEY in Coolify}
+      PUBLIC_ORIGIN: ${PUBLIC_ORIGIN:?Set the exact HTTPS PUBLIC_ORIGIN}
+      MAILBOX_PATH: /app/.private/mailbox
       REDIS_URL: redis://:${REDIS_PASSWORD}@redis:6379
+    volumes:
+      - mailbox_data:/app/.private/mailbox
     depends_on:
       migrate: { condition: service_completed_successfully }
       redis: { condition: service_healthy }
@@ -131,3 +158,4 @@ networks:
 volumes:
   postgres_data:
   redis_data:
+  mailbox_data:

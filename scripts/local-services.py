@@ -38,13 +38,16 @@ def main():
     if not config_path.exists():
         config_path.write_text(json.dumps({name: secrets.token_hex(24) for name in ('api', 'worker', 'migrator', 'redis')}))
     keys = json.loads(config_path.read_text())
+    for name in ('auth','master'):
+        if name not in keys: keys[name]=secrets.token_hex(32)
+    config_path.write_text(json.dumps(keys))
     if not (DATA/'PG_VERSION').exists():
         run([PG/'initdb', '-D', DATA, '-U', 'jarvis_bootstrap', '--auth-local=trust', '--auth-host=scram-sha-256', '--no-locale', '--encoding=UTF8'], stdout=subprocess.DEVNULL)
     if subprocess.run([str(PG/'pg_ctl'), '-D', str(DATA), 'status'], stdout=subprocess.DEVNULL).returncode:
         run([PG/'pg_ctl', '-D', DATA, '-l', LOCAL/'postgres.log', '-o', f'-p 55432 -h 127.0.0.1 -k {SOCKET}', '-w', 'start'], stdout=subprocess.DEVNULL)
     sql = r"""SELECT 'CREATE ROLE jarvis_owner NOLOGIN' WHERE NOT EXISTS (SELECT FROM pg_roles WHERE rolname='jarvis_owner')\gexec
 """
-    for role in ('api', 'worker', 'migrator'):
+    for role in ('api', 'worker', 'migrator', 'auth'):
         sql += f"SELECT 'CREATE ROLE jarvis_{role} LOGIN NOSUPERUSER NOBYPASSRLS NOCREATEDB NOCREATEROLE PASSWORD ''{keys[role]}''' WHERE NOT EXISTS (SELECT FROM pg_roles WHERE rolname='jarvis_{role}')\\gexec\n"
     sql += "GRANT jarvis_owner TO jarvis_migrator;\n"
     sql += "SELECT 'CREATE DATABASE jarvis_dev OWNER jarvis_owner' WHERE NOT EXISTS (SELECT FROM pg_database WHERE datname='jarvis_dev')\\gexec\n"
@@ -62,9 +65,10 @@ def main():
         result = run([cli, '-p', '56379', 'ping'], env=service_env, stdout=subprocess.PIPE, text=True)
         if result.stdout.strip() != 'PONG': raise RuntimeError('REDIS_NOT_READY')
     env = ['APP_MODE=development', 'HOST=127.0.0.1', 'PORT=3001']
-    for var, role in [('DATABASE_URL','api'), ('WORKER_DATABASE_URL','worker'), ('MIGRATION_DATABASE_URL','migrator')]:
+    for var, role in [('DATABASE_URL','api'), ('WORKER_DATABASE_URL','worker'), ('MIGRATION_DATABASE_URL','migrator'), ('AUTH_DATABASE_URL','auth')]:
         env.append(f'{var}=postgresql://jarvis_{role}:{keys[role]}@127.0.0.1:55432/jarvis_dev')
     env.append(f'REDIS_URL=redis://:{keys["redis"]}@127.0.0.1:56379')
+    env.extend([f'APP_ENCRYPTION_KEY={keys["master"]}','PUBLIC_ORIGIN=http://127.0.0.1:8080',f'MAILBOX_PATH={LOCAL}/mailbox'])
     (LOCAL/'dev.env').write_text('\n'.join(env)+'\n')
     print('Private PostgreSQL/pgvector and Redis ready; configuration stored in .local/dev.env (mode 0600).')
 

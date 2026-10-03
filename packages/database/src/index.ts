@@ -1,5 +1,5 @@
 import pg from 'pg';
-export const SCHEMA_VERSION = 1;
+export const SCHEMA_VERSION = 2;
 export function createPool(connectionString: string) {
   return new pg.Pool({ connectionString, max: 4, connectionTimeoutMillis: 2000, statement_timeout: 3000 });
 }

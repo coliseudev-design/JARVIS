@@ -1,0 +1,18 @@
+# Optional build-only CA for an environment with a trusted HTTPS proxy.
+# Never use this file unless NODE_EXTRA_CA_CERTS points to that environment's CA.
+services:
+  api:
+    build:
+      secrets: [npm_ca]
+  worker:
+    build:
+      secrets: [npm_ca]
+  web:
+    build:
+      secrets: [npm_ca]
+  migrate:
+    build:
+      secrets: [npm_ca]
+secrets:
+  npm_ca:
+    file: ${NODE_EXTRA_CA_CERTS:?Set the path of the trusted environment proxy CA}

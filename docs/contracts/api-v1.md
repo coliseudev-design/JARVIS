@@ -6,7 +6,7 @@ Estado: especificação F00 para implementação incremental F01–F08. Estas ro
 
 Prefixo de produto `/api/v1`; IDs opacos UUID; datas RFC3339 UTC, timezone IANA separado quando relevante. JSON UTF-8, schemas estritos com campos extras rejeitados. IDs de tenant/owner/runtime não são aceitos como identidade no corpo/query/header de rotas públicas. Uma seleção de tenant só é aceita em operação própria que verifica membership e troca contexto de sessão. IDs de recurso continuam sujeitos a autorização.
 
-Sessão opaca em cookie HttpOnly, CSRF + Origin em mutações autenticadas por cookie. Rate limit de login/recuperação por conta normalizada e origem, sem mensagem que enumere cadastro. Recurso privado ausente/inacessível retorna 404, inclusive run de SSE. Rotas administrativas podem retornar 403 por falta de papel, mas papel não libera conteúdo.
+Sessão opaca em cookie HttpOnly, CSRF + Origin em mutações autenticadas por cookie. O alvo público exige rate limit de login/recuperação por conta normalizada e origem confiável, sem mensagem que enumere cadastro. No piloto F02, há limite por conta/token e circuito global explícito; o IP do proxy privado não é identidade do cliente (ADR0007). Recurso privado ausente/inacessível retorna 404, inclusive no futuro run de SSE. Rotas administrativas podem retornar 403 por falta de papel, mas papel não libera conteúdo.
 
 Limites iniciais de produto (configuráveis para baixo; não benchmarks): JSON 256 KiB; mensagem de texto 32 KiB UTF-8; até 10 anexos já autorizados; `limit` de lista 1–100, padrão 25. Upload tem endpoint/pipeline separado e limite inicial 20 MiB por objeto, quota por owner aplicada atomicamente; o parser não precisa aceitar esse tamanho nas demais rotas. Números/tamanho/cursor inválidos retornam 400/413. Conteúdo de erro não reproduz payload, SQL, segredo ou resposta bruta de fornecedor.
 
@@ -32,18 +32,25 @@ Não tratar banco ausente como ready. Se modo local sem serviços existir, ident
 
 ## Identidade — F02
 
+Rotas abaixo implementadas no núcleo piloto; prefixo `/api/v1` omitido na tabela. Schemas executáveis ficam em `packages/contracts`. Metadados de dispositivo/último uso, troca de workspace e recuperação de MFA perdido continuam fora desta entrega.
+
 | Rota | Entrada mínima | Saída/efeito |
 |---|---|---|
-| `POST /auth/login` | email, password | 200 perfil mínimo + cookie; 401 genérico |
+| `POST /auth/login` | email, password, code TOTP quando ativo | 200 `{authenticated:true}` + cookie; 401 genérico |
 | `POST /auth/logout` | CSRF | 204 após revogar sessão atual |
-| `GET /me` | sessão | user id, nome, fuso, papéis operacionais e capabilities visíveis; sem chaves |
-| `GET /auth/sessions` | sessão | sessões próprias, dispositivo resumido/último uso |
+| `GET /me` | sessão | user/tenant/email, papel, flags MFA, csrf_token, perfil nome/fuso/versão |
+| `GET /profiles/{id}` | sessão | somente perfil próprio; 404 caso inacessível |
+| `PATCH /me/profile` | display_name, timezone, expected_version, CSRF | perfil atualizado; 409 em versão desatualizada |
+| `GET /auth/sessions` | sessão | sessões próprias ativas: id, created_at, expires_at, current |
 | `DELETE /auth/sessions/{id}` | CSRF | revoga sessão própria, 204 idempotente |
-| `POST /auth/invitations/accept` | token, nome, senha | token consumido uma vez; sessão nova |
+| `POST /auth/invitations/accept` | token, display_name, password | 201 `{authenticated:true}`; token consumido uma vez; cookie de sessão nova |
 | `POST /auth/recovery/request` | email | 202 genérico mesmo se conta ausente |
-| `POST /auth/recovery/complete` | token, nova senha | token consumido uma vez e sessões anteriores revogadas |
+| `POST /auth/recovery/complete` | token, password, code TOTP quando ativo | 204, token consumido uma vez e sessões anteriores revogadas |
+| `POST /auth/mfa/start` | password, CSRF | secret e otpauth_uri para matrícula após reautenticação |
+| `POST /auth/mfa/confirm` | code, CSRF | 204, ativa MFA e revoga outras sessões |
+| `POST /administration/invitations` | email, role, CSRF; admin com MFA | 202 invitation_id e delivery local_test_mailbox; sem token |
 
-Convite administrativo e MFA são contratos F02 adicionais, a fechar com A02 antes da abertura pública. Tokens não aparecem em logs, telemetria ou GET URLs de API. Mailbox local só valida fluxo de laboratório.
+Convites/recuperações são entregues na mailbox privada de laboratório. Links usam fragmento de URL, removido pela UI ao ler o token; tokens não aparecem em GET URLs de API, logs ou telemetria. A origem HTTPS configurada determina cookie Secure com prefixo __Host-. Abertura pública depende dos gates descritos em STATUS/ADR0007.
 
 ## Conversa e runs — F05
 

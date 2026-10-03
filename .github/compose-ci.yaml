@@ -1,0 +1,11 @@
+# Disposable CI only; these database ports never belong to the Coolify Compose.
+services:
+  postgres:
+    ports: ["127.0.0.1:54399:5432"]
+  redis:
+    ports: ["127.0.0.1:56399:6379"]
+networks:
+  backend:
+    # Docker does not publish ports from an internal-only bridge.
+    # This override is restricted to disposable CI; production stays internal.
+    internal: false

@@ -1,39 +1,35 @@
 # Estado do JARVIS
 
-Atualizado em 02/10/2026. Fonte de escopo: plano original F00–F20. Esta entrega inaugura o repositório, previamente vazio. Evidências referem-se à máquina cloud desta sessão, não à VPS do usuário.
-
-Código e Compose publicados na branch `main` de `coliseudev-design/JARVIS`; publicação inicial `136227e`. Clone limpo instalou e passou os checks. Configuração cloud `install_script`/`start_skill` salva; publicação do snapshot depende do fluxo do produto. GitHub API impediu consultar o resultado do CI remoto, portanto ele segue não confirmado.
+Atualizado em 03/10/2026. Escopo original F00–F20 preservado. Evidências são do ambiente cloud desta sessão, não da VPS. Código/Compose são publicados em `coliseudev-design/JARVIS`, branch `main`. CI remoto não confirmado: GitHub API negou a consulta. Configuração cloud foi salva como rascunho; isso não publica um snapshot.
 
 | Marco | Estado real | Evidência / próximo gate |
 |---|---|---|
-| Planejamento F00–F20 | Entregue | `IMPLEMENTATION_PLAN.md`, 15 prompts A00–A14, ExecPlans F00/F01 |
-| F00 arquitetura/segurança | Entregue e revisada | 6 ADRs, contratos API/eventos/runtime, threat model, matriz de permissões, plano negativo e storyboard |
-| F00 spike Hermes | Validado localmente com provider sintético | 12 checks, upstream real fixado, dois homes e XDG state independentes; `evidence/F00-hermes.md` |
-| F01 fundação | Implementada e validada nativamente | Build, typecheck, 5 testes unitários/contrato + 3 integrações, banco vazio, repetição e HTTP reais |
-| F01 Compose/CI | Configuração preparada; containers ainda não homologados | Schema Compose e bootstrap SQL passaram; Docker Hub 429 impede build local; CI ainda precisa execução no GitHub |
-| F02 identidade | Próxima fase, não iniciada | Sessões/convites/MFA/CSRF/RLS e testes canário reais de pessoa |
+| Planejamento F00–F20 | Entregue | `IMPLEMENTATION_PLAN.md`, 15 prompts A00–A14, ExecPlans por fase |
+| F00 arquitetura/segurança | Entregue e revisada | ADRs, contratos, threat model, matriz, plano negativo e storyboard |
+| F00 spike Hermes | Validado com provider sintético | 12 checks; upstream real, homes/XDG separados; `evidence/F00-hermes.md` |
+| F01 fundação | Implementada e validada nativamente | Web/API/worker, PostgreSQL/pgvector/Redis, bootstrap e migrations repetíveis |
+| F01/F02 Compose | Build e execução validados localmente | Digests fixados, serviços saudáveis, HTTP/isolamento/worker e persistência; `evidence/F02-containers.md` |
+| F02 núcleo de identidade | Implementado e validado localmente | Convites/login/sessões/CSRF/MFA/perfil RLS, canários e navegador; `evidence/F02-identity.md` |
+| F02 gates restantes | Pendentes | SMTP, recuperação de MFA perdido, administração completa, rate limit no edge e autorização dos futuros arquivos/SSE/jobs |
 | F03–F06 MVP pessoal | Planejadas | UI completa, cofre/modelos, chat Hermes integrado, perfil/memória com esquecer |
 | F07–F15 V1 | Planejadas | Documentos, tools, Google, voz, browser, Telegram, rotinas, auditoria e homologação |
-| F16–F20 avançadas | Planejadas, preservadas | Temporal/missões, memória temporal, multimodal, companion e escala |
+| F16–F20 avançadas | Planejadas | Temporal/missões, memória temporal, multimodal, companion e escala |
 
-## Comportamento disponível agora
+## Comportamento disponível
 
-Web PT-BR consulta capabilities reais e apresenta falha de conexão. API publica liveness, readiness e status/OpenAPI. Readiness exige schema 1, extensão vector, role sem superuser/BYPASSRLS/ownership e Redis acessível. Worker aceita exclusivamente probes sintéticos estritos, registra no PostgreSQL e recusa campos de identidade arbitrários. Nenhum endpoint executa ação pessoal ou externa.
+Web PT-BR mostra capacidades reais, convite/login, recuperação por mailbox local, perfil privado com timezone e versão, sessões revogáveis, matrícula MFA e convite administrativo. Readiness exige schema2, vector, roles não-owner/sem BYPASSRLS, identidade e Redis. OpenAPI descreve rotas implementadas. Não há chat ou conexão fictícios.
 
-Bootstrap cria roles separadas para API, worker e migration. Essa fundação **não implementa RLS de conteúdo pessoal nem autenticação**: tabelas do produto serão criadas na F02. O worker F01 não executa tarefas dos usuários. A UI não tem login/chat fictícios.
+Roles API, auth, worker, migrator e owner são distintas. Perfil tem RLS FORCE e contexto transacional tenant/user. Admin operacional não lê conteúdo de outras pessoas. Worker continua aceitando somente probes sintéticos; autenticação não habilita execução externa ou jobs pessoais.
 
 ## Execução por agentes
 
-A00 coordenou; A01 entregou arquitetura/contratos/storyboard; A02 entregou segurança; A06 implementou o spike. A02/A06 atingiram o limite de execução dos agentes após entregas parciais. A00 assumiu documentação restante, repetiu o spike, corrigiu XDG state e integrou a fundação sequencialmente. Revisão A01 explicitou limites do experimento. Nenhum arquivo foi descartado por conflito entre autores.
+A00 coordena; A01 entregou arquitetura/contratos/storyboard; A02 segurança; A06 spike Hermes. Após limite de execução dos filhos, A00 integrou a fundação e escreveu o núcleo F02 como único escritor de schema/contratos/lockfile. A01 revisou F02 e apontou o agrupamento de IP pelo proxy e um deadlock na recuperação; as correções e limites estão na ADR0007 e evidências. Não houve quinze implementadores concorrentes.
 
-## Pendências concretas
+## Pendências e próximo recorte
 
-- Provar build/startup Docker e deploy Coolify quando houver acesso ao registry. Tags estão fixadas, digests e patch exato da imagem PostgreSQL ainda não foram homologados.
-- F05: provider live, sandbox de processo/egress, broker, replay SSE de runs e queda durante execução; fixture F00 não prova esses itens.
-- VPS/domínio/região/recursos/orçamento, Google/Telegram/voz e hardware Mac não foram configurados nesta sessão. Integrações live dependem dos ambientes/contas apropriados.
-- Vídeos não foram anexados; storyboard deriva das descrições do plano, sem alegar análise visual direta dos MP4s.
-- Nada foi publicado na VPS ou homologado em staging. Publicação do código no GitHub é distinta de deploy ou publicação de snapshot cloud.
-
-## Próximo slice
-
-F02: definir schema de identidade/ownership, criar convite/login/sessões/CSRF, usar role real e testar R/M no mesmo tenant, tenants distintos, revogação e pool tamanho 1. Manter execução externa e dados pessoais indisponíveis até os gates passarem. O Compose evolui com as fases; ele não implica conclusão antecipada do produto.
+- Homologar Coolify/domínio público/VPS; containers passaram localmente, CI remoto permanece não confirmado.
+- Completar gates operacionais F02 antes de uso público: entrega de e-mail, recuperação do segundo fator, administração e proteção no edge. Mailbox atual é de testes, sem SMTP.
+- F03 começa a interface de trabalho; F04 adiciona providers/cofre; F05 conecta chat e Hermes. SSE, arquivos, memória e jobs pessoais precisam de testes próprios de isolamento quando existirem.
+- Provider live, sandbox de processo/egress, broker, replay SSE e queda em execução continuam gates F05. Fixture F00 não prova esses itens.
+- Domínio/VPS, contas Google/Telegram/voz e hardware Mac não foram configurados. Vídeos não foram anexados; storyboard deriva do texto.
+- A implementação completa F00–F20 permanece em andamento; o Compose evolui junto às fases.

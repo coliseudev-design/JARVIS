@@ -31,8 +31,8 @@ afterAll(async () => {
 describe('real PostgreSQL/pgvector + Redis foundation', () => {
   it('migrates repeatably and enforces non-owner least-privilege app role', async () => {
     await expect(assertDatabaseReady(api)).resolves.toBeUndefined();
-    const versions = await api.query('SELECT version FROM jarvis.schema_migrations');
-    expect(versions.rows).toEqual([{ version: 1 }]);
+    const versions = await api.query('SELECT version FROM jarvis.schema_migrations ORDER BY version');
+    expect(versions.rows).toEqual([{ version: 1 },{ version: 2 }]);
     const vector = await api.query("SELECT '[1,2,3]'::vector <-> '[1,2,4]'::vector AS distance");
     expect(vector.rows[0].distance).toBe(1);
     await expect(api.query('CREATE TABLE jarvis.forbidden (id integer)')).rejects.toMatchObject({ code: '42501' });
